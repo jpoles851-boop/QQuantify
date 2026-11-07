@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ result.symbol }} — Analysis</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #16181f;
+      --border:   #2a2d3a;
+      --accent:   #4fc3f7;
+      --danger:   #ef5350;
+      --ok:       #66bb6a;
+      --warn:     #ffa726;
+      --text:     #e8eaf0;
+      --muted:    #8a8fa8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .ticker {
+      font-family: 'Space Mono', monospace;
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 4px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 6px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── Cards Grid ── */ <!-- creates the cards that displays the different data regarding the stock -->
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 36px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .card-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-comment {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* colour the score value by risk level */
+    .score-low  { color: var(--ok); }
+    .score-mid  { color: var(--warn); }
+    .score-high { color: var(--danger); }
+
+    /* ── View Graphs Button ── */
+    .btn-graphs {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      padding: 14px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.15s;
+      margin-bottom: 28px;
+    }
+    .btn-graphs:hover {
+      background: var(--accent);
+      color: #0f1117;
+      transform: translateY(-2px);
+    }
+    .btn-graphs svg { flex-shrink: 0; }
+
+    /* ── Back link ── */
+    .back {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+    }
+    .back:hover { color: var(--text); }
+
+    /* ════════════════════════════════════════
+       MODAL
+    ════════════════════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 860px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 1rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .btn-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.4rem;
+      line-height: 1;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-close:hover { background: var(--border); color: var(--text); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .tab {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.83rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    /* Graph panels */
+    .panels {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .graph-img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    /* Loading state */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      height: 300px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- ── Results Header ── -->
+  <div class="header">
+    <div class="ticker">{{ result.symbol }}</div>
+    <div class="subtitle">Risk Analysis Results</div>
+  </div>
+
+  <!-- ── Metric Cards ── -->
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-label">Debt / Equity</div>
+      <div class="card-value">
+        {% if result.debt_to_equity is not none %}
+          {{ result.debt_to_equity }}
+        {% else %}
+          N/A
+        {% endif %}
+      </div>
+      <div class="card-comment">Financial leverage ratio</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Volatility Score</div>
+      <div class="card-value
+        {% if result.volatility <= 30 %} score-low
+        {% elif result.volatility <= 60 %} score-mid
+        {% else %} score-high {% endif %}">
+        {{ result.volatility }}<span style="font-size:1rem;color:var(--muted)">/100</span>
+      </div>
+      <div class="card-comment">{{ result.v_comment or result.vol_comment }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Beta</div>
+      <div class="card-value">
+        {% if result.beta is not none %}
+          {{ result.beta }}
+        {% else %}
+          N/A
+        {% endif %}
+      </div>
+      <div class="card-comment">Market sensitivity (1.0 = market)</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Liquidity Score</div>
+      <div class="card-value
+        {% if result.liquidity <= 30 %} score-low
+        {% elif result.liquidity <= 60 %} score-mid
+        {% else %} score-high {% endif %}">
+        {{ result.liquidity }}<span style="font-size:1rem;color:var(--muted)">/100</span>
+      </div>
+      <div class="card-comment">{{ result.l_comment or result.liq_comment }}</div>
+    </div>
+
+  </div>
+
+  <!-- ── View Graphs Button ── -->
+  <button class="btn-graphs" onclick="openModal()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+    VIEW GRAPHS
+  </button>
+
+  <a class="back" href="/">← Analyse another stock</a>
+
+
+  <!-- ════════════════════════════════════════
+       MODAL
+  ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal">
+
+      <div class="modal-header">
+        <span class="modal-title">{{ result.symbol }} — Charts</span>
+        <button class="btn-close" onclick="closeModal()">✕</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(0)">Price History</button>
+        <button class="tab"        onclick="switchTab(1)">Risk Scores</button>
+        <button class="tab"        onclick="switchTab(2)">Beta Scatter</button>
+        <button class="tab"        onclick="switchTab(3)">Rolling Volatility</button>
+      </div>
+
+      <div class="panels" id="panels">
+        <!-- Filled by JS after fetch -->
+        <div class="loading" id="loadingSpinner">
+          <div class="spinner"></div>
+          <span>Generating charts…</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+    const SYMBOL    = "{{ result.symbol }}";
+    let   loaded    = false;
+    let   activeTab = 0;
+
+    const TABS = [
+      { key: 'price_history', label: 'Price History'      },
+      { key: 'risk_scores',   label: 'Risk Scores'        },
+      { key: 'beta_scatter',  label: 'Beta Scatter'        },
+      { key: 'rolling_vol',   label: 'Rolling Volatility'  },
+    ];
+
+    function openModal() {
+      document.getElementById('modalOverlay').classList.add('open');
+      if (!loaded) fetchGraphs();
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function handleOverlayClick(e) {
+      // Close if user clicks the dark backdrop (not the modal itself)
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+
+    function switchTab(index) {
+      activeTab = index;
+      document.querySelectorAll('.tab').forEach((t, i) =>
+        t.classList.toggle('active', i === index)
+      );
+      document.querySelectorAll('.panel').forEach((p, i) =>
+        p.classList.toggle('active', i === index)
+      );
+    }
+
+    async function fetchGraphs() {
+      try {
+        const res  = await fetch(`/graphs/${SYMBOL}`);
+        const data = await res.json();
+
+        const panels = document.getElementById('panels');
+        panels.innerHTML = '';   // clear spinner
+
+        TABS.forEach((tab, i) => {
+          const div = document.createElement('div');
+          div.className = 'panel' + (i === 0 ? ' active' : '');
+          const img = document.createElement('img');
+          img.className = 'graph-img';
+          img.src = `data:image/png;base64,${data[tab.key]}`;
+          img.alt = tab.label;
+          div.appendChild(img);
+          panels.appendChild(div);
+        });
+
+        loaded = true;
+      } catch (err) {
+        document.getElementById('panels').innerHTML =
+          `<div class="loading" style="color:#ef5350">Failed to load charts. Please try again.</div>`;
+        console.error(err);
+      }
+    }
+
+    // Keyboard shortcut — Escape closes modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+
+</body>
+</html>
